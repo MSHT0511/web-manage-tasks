@@ -23,7 +23,7 @@ describe('App Component Tests', () => {
 
       render(<App />);
 
-      expect(screen.getByText('タスク管理ツール')).toBeInTheDocument();
+      expect(screen.getByText('✨ タスク管理ツール')).toBeInTheDocument();
     });
 
     test('入力フィールドとボタンが表示される', async () => {
@@ -33,11 +33,25 @@ describe('App Component Tests', () => {
 
       render(<App />);
 
-      const input = screen.getByPlaceholderText('新しいタスク');
-      const button = screen.getByText('追加');
+      const input = screen.getByPlaceholderText('新しいタスクを入力...');
+      const button = screen.getByRole('button', { name: /追加/ });
 
       expect(input).toBeInTheDocument();
       expect(button).toBeInTheDocument();
+    });
+
+    test('タスクが空の場合、空の状態メッセージが表示される', async () => {
+      fetch.mockResolvedValueOnce({
+        json: async () => []
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith('/api/tasks');
+      });
+
+      expect(screen.getByText(/タスクがありません/)).toBeInTheDocument();
     });
   });
 
@@ -64,7 +78,31 @@ describe('App Component Tests', () => {
       expect(await screen.findByText('タスク2')).toBeInTheDocument();
     });
 
-    test('タスクが空の場合、リストは空である', async () => {
+    test('タスクがある場合、統計が表示される', async () => {
+      const mockTasks = [
+        { id: 1, title: 'タスク1', completed: false },
+        { id: 2, title: 'タスク2', completed: true },
+        { id: 3, title: 'タスク3', completed: true }
+      ];
+
+      fetch.mockResolvedValueOnce({
+        json: async () => mockTasks
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('全タスク')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('完了')).toBeInTheDocument();
+      expect(screen.getByText('未完了')).toBeInTheDocument();
+      expect(screen.getByText('3')).toBeInTheDocument(); // 全タスク数
+      expect(screen.getByText('2')).toBeInTheDocument(); // 完了数
+      expect(screen.getByText('1')).toBeInTheDocument(); // 未完了数
+    });
+
+    test('タスクが空の場合、統計は表示されない', async () => {
       fetch.mockResolvedValueOnce({
         json: async () => []
       });
@@ -75,9 +113,8 @@ describe('App Component Tests', () => {
         expect(fetch).toHaveBeenCalledWith('/api/tasks');
       });
 
-      // タスクが表示されないことを確認
-      const listItems = screen.queryAllByRole('listitem');
-      expect(listItems).toHaveLength(0);
+      // 統計が表示されないことを確認
+      expect(screen.queryByText('全タスク')).not.toBeInTheDocument();
     });
   });
 
@@ -105,11 +142,11 @@ describe('App Component Tests', () => {
       });
 
       // 入力フィールドに値を入力
-      const input = screen.getByPlaceholderText('新しいタスク');
+      const input = screen.getByPlaceholderText('新しいタスクを入力...');
       fireEvent.change(input, { target: { value: '新しいタスク' } });
 
       // 追加ボタンをクリック
-      const addButton = screen.getByText('追加');
+      const addButton = screen.getByRole('button', { name: /追加/ });
       fireEvent.click(addButton);
 
       // POSTリクエストが呼ばれたことを確認
@@ -117,7 +154,7 @@ describe('App Component Tests', () => {
         expect(fetch).toHaveBeenCalledWith('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: '新しいタスク' })
+          body: JSON.stringify({ title: '新しいタスク', completed: false })
         });
       });
 
@@ -126,6 +163,36 @@ describe('App Component Tests', () => {
 
       // 入力フィールドがクリアされることを確認
       expect(input.value).toBe('');
+    });
+
+    test('Enterキーでタスクを追加できる', async () => {
+      const newTask = { id: 1, title: 'Enterで追加', completed: false };
+
+      fetch.mockResolvedValueOnce({
+        json: async () => []
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledTimes(1);
+      });
+
+      fetch.mockResolvedValueOnce({
+        json: async () => newTask
+      });
+
+      const input = screen.getByPlaceholderText('新しいタスクを入力...');
+      fireEvent.change(input, { target: { value: 'Enterで追加' } });
+      fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', charCode: 13 });
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Enterで追加', completed: false })
+        });
+      });
     });
 
     test('空の入力値ではタスクを追加しない', async () => {
@@ -140,7 +207,7 @@ describe('App Component Tests', () => {
       });
 
       // 空の入力で追加ボタンをクリック
-      const addButton = screen.getByText('追加');
+      const addButton = screen.getByRole('button', { name: /追加/ });
       fireEvent.click(addButton);
 
       // POSTリクエストが呼ばれないことを確認
@@ -161,11 +228,11 @@ describe('App Component Tests', () => {
       });
 
       // 空白のみを入力
-      const input = screen.getByPlaceholderText('新しいタスク');
+      const input = screen.getByPlaceholderText('新しいタスクを入力...');
       fireEvent.change(input, { target: { value: '   ' } });
 
       // 追加ボタンをクリック
-      const addButton = screen.getByText('追加');
+      const addButton = screen.getByRole('button', { name: /追加/ });
       fireEvent.click(addButton);
 
       // POSTリクエストが呼ばれないことを確認
@@ -199,7 +266,7 @@ describe('App Component Tests', () => {
       });
 
       // 最初の削除ボタンをクリック
-      const deleteButtons = screen.getAllByText('削除');
+      const deleteButtons = screen.getAllByRole('button', { name: /削除/ });
       fireEvent.click(deleteButtons[0]);
 
       // DELETEリクエストが呼ばれたことを確認
@@ -240,7 +307,7 @@ describe('App Component Tests', () => {
         json: async () => ({ success: true })
       });
 
-      const deleteButtons = screen.getAllByText('削除');
+      const deleteButtons = screen.getAllByRole('button', { name: /削除/ });
       fireEvent.click(deleteButtons[1]); // タスク2の削除ボタン
 
       await waitFor(() => {
@@ -253,6 +320,61 @@ describe('App Component Tests', () => {
     });
   });
 
+  describe('タスクの完了切り替え', () => {
+    test('チェックボックスでタスクの完了状態を切り替えられる', async () => {
+      const initialTasks = [
+        { id: 1, title: 'タスク1', completed: false }
+      ];
+
+      fetch.mockResolvedValueOnce({
+        json: async () => initialTasks
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('タスク1')).toBeInTheDocument();
+      });
+
+      const checkbox = screen.getByRole('checkbox');
+      expect(checkbox).not.toBeChecked();
+
+      // チェックボックスをクリック
+      fireEvent.click(checkbox);
+
+      // チェックされたことを確認
+      await waitFor(() => {
+        expect(checkbox).toBeChecked();
+      });
+
+      // もう一度クリックしてチェックを外す
+      fireEvent.click(checkbox);
+
+      await waitFor(() => {
+        expect(checkbox).not.toBeChecked();
+      });
+    });
+
+    test('完了したタスクはスタイルが変わる', async () => {
+      const initialTasks = [
+        { id: 1, title: 'タスク1', completed: true }
+      ];
+
+      fetch.mockResolvedValueOnce({
+        json: async () => initialTasks
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('タスク1')).toBeInTheDocument();
+      });
+
+      const checkbox = screen.getByRole('checkbox');
+      expect(checkbox).toBeChecked();
+    });
+  });
+
   describe('入力フィールドの状態管理', () => {
     test('入力フィールドの値が正しく更新される', async () => {
       fetch.mockResolvedValueOnce({
@@ -261,7 +383,7 @@ describe('App Component Tests', () => {
 
       render(<App />);
 
-      const input = screen.getByPlaceholderText('新しいタスク');
+      const input = screen.getByPlaceholderText('新しいタスクを入力...');
 
       fireEvent.change(input, { target: { value: 'テスト入力' } });
 
@@ -275,7 +397,7 @@ describe('App Component Tests', () => {
 
       render(<App />);
 
-      const input = screen.getByPlaceholderText('新しいタスク');
+      const input = screen.getByPlaceholderText('新しいタスクを入力...');
 
       // 値を入力
       fireEvent.change(input, { target: { value: '新タスク' } });
@@ -286,7 +408,7 @@ describe('App Component Tests', () => {
       });
 
       // 追加ボタンをクリック
-      const addButton = screen.getByText('追加');
+      const addButton = screen.getByRole('button', { name: /追加/ });
       fireEvent.click(addButton);
 
       // 入力フィールドがクリアされることを確認
@@ -296,3 +418,4 @@ describe('App Component Tests', () => {
     });
   });
 });
+
