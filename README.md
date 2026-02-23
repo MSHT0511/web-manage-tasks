@@ -1,5 +1,7 @@
 # Webタスク管理ツール
 
+[![CI](https://github.com/MSHT0511/web-manage-tasks/actions/workflows/ci.yml/badge.svg)](https://github.com/MSHT0511/web-manage-tasks/actions/workflows/ci.yml)
+
 このプロジェクトは、**個人用の学習・開発目的**で作成されたシンプルなWebタスク管理ツールです。
 
 > **注意**: このアプリケーションは個人利用を想定しており、本番環境での使用や商用利用は想定していません。認証機能やセキュリティ対策は実装されていないため、機密性の高い情報は扱わないでください。
@@ -201,6 +203,35 @@ npm run test:coverage
 
 - Node.js 14以上推奨
 - npm または yarn
+
+## CI/CD
+
+このプロジェクトは GitHub Actions を使用した継続的インテグレーション（CI）を実装しています。
+
+### 自動テスト
+
+すべての `push` と `pull_request` イベントで自動的にテストが実行されます：
+- サーバー側テスト（Jest + Supertest）
+- クライアント側テスト（Jest + React Testing Library）
+
+### ブランチ保護ルールの設定（推奨）
+
+テストが失敗した場合にマージをブロックするには、以下の手順でブランチ保護ルールを設定してください：
+
+1. GitHub リポジトリの **Settings** → **Branches** に移動
+2. **Branch protection rules** で **Add rule** をクリック
+3. **Branch name pattern** に `main` を入力
+4. **Require status checks to pass before merging** にチェック
+5. ステータスチェックのリストから **CI / Run Tests** を選択
+6. **Create** または **Save changes** をクリック
+
+これにより、CI が成功しない限り main ブランチへのマージができなくなります。
+
+### ステータスバッジ
+
+README のトップに表示されているバッジは CI の現在の状態を示しています：
+- ✅ 緑色：すべてのテストが成功
+- ❌ 赤色：テストが失敗
 
 ## 今後の拡張予定
 
