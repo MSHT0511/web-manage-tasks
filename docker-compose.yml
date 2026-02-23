@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: web-manage-tasks-dev
+    ports:
+      - "3000:3000"  # クライアント（webpack-dev-server）
+      - "3001:3001"  # サーバー（Express API）
+    volumes:
+      # ソースコードをマウント（ホットリロード用）
+      - ./client:/app/client
+      - ./server:/app/server
+      - ./package.json:/app/package.json
+      # node_modulesは匿名ボリュームで保護（ホストと分離）
+      - /app/node_modules
+      - /app/client/node_modules
+      - /app/server/node_modules
+      # tasks.jsonの永続化用
+      - tasks-data:/app/server
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true  # Dockerでのファイル監視安定化
+    stdin_open: true  # docker run -i
+    tty: true         # docker run -t
+
+volumes:
+  tasks-data:  # サーバーデータの永続化用名前付きボリューム

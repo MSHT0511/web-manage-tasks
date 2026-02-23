@@ -7,10 +7,11 @@
   },
   "devDependencies": {
     "jest": "^29.7.0",
+    "nodemon": "^3.0.0",
     "supertest": "^6.3.3"
   },
   "scripts": {
-    "dev": "node index.js",
+    "dev": "nodemon index.js",
     "test": "jest",
     "test:coverage": "jest --coverage"
   }
