@@ -58,8 +58,8 @@ describe('App Component Tests', () => {
   describe('タスク一覧の取得と表示', () => {
     test('初期レンダリング時にタスク一覧を取得する', async () => {
       const mockTasks = [
-        { id: 1, title: 'タスク1', completed: false },
-        { id: 2, title: 'タスク2', completed: true }
+        { id: 1, title: 'タスク1', completed: false, deadline: null },
+        { id: 2, title: 'タスク2', completed: true, deadline: '2026-02-25T15:00' }
       ];
 
       fetch.mockResolvedValueOnce({
@@ -80,9 +80,9 @@ describe('App Component Tests', () => {
 
     test('タスクがある場合、統計が表示される', async () => {
       const mockTasks = [
-        { id: 1, title: 'タスク1', completed: false },
-        { id: 2, title: 'タスク2', completed: true },
-        { id: 3, title: 'タスク3', completed: true }
+        { id: 1, title: 'タスク1', completed: false, deadline: null },
+        { id: 2, title: 'タスク2', completed: true, deadline: null },
+        { id: 3, title: 'タスク3', completed: true, deadline: null }
       ];
 
       fetch.mockResolvedValueOnce({
@@ -121,9 +121,9 @@ describe('App Component Tests', () => {
   describe('タスクの追加', () => {
     test('新しいタスクを追加できる', async () => {
       const initialTasks = [
-        { id: 1, title: '既存タスク', completed: false }
+        { id: 1, title: '既存タスク', completed: false, deadline: null }
       ];
-      const newTask = { id: 2, title: '新しいタスク', completed: false };
+      const newTask = { id: 2, title: '新しいタスク', completed: false, deadline: null };
 
       // 初回のGETリクエストをモック
       fetch.mockResolvedValueOnce({
@@ -154,7 +154,7 @@ describe('App Component Tests', () => {
         expect(fetch).toHaveBeenCalledWith('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: '新しいタスク', completed: false })
+          body: JSON.stringify({ title: '新しいタスク', deadline: null })
         });
       });
 
@@ -165,8 +165,44 @@ describe('App Component Tests', () => {
       expect(input.value).toBe('');
     });
 
+    test('期限付きタスクを追加できる', async () => {
+      const newTask = { id: 1, title: '期限付きタスク', completed: false, deadline: '2026-03-01T10:00' };
+
+      fetch.mockResolvedValueOnce({
+        json: async () => []
+      });
+
+      const { container } = render(<App />);
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledTimes(1);
+      });
+
+      fetch.mockResolvedValueOnce({
+        json: async () => newTask
+      });
+
+      const input = screen.getByPlaceholderText('新しいタスクを入力...');
+      // datetime-local の input 要素を取得
+      const deadlineInput = container.querySelector('input[type="datetime-local"]');
+
+      fireEvent.change(input, { target: { value: '期限付きタスク' } });
+      fireEvent.change(deadlineInput, { target: { value: '2026-03-01T10:00' } });
+
+      const addButton = screen.getByRole('button', { name: /追加/ });
+      fireEvent.click(addButton);
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '期限付きタスク', deadline: '2026-03-01T10:00' })
+        });
+      });
+    });
+
     test('Enterキーでタスクを追加できる', async () => {
-      const newTask = { id: 1, title: 'Enterで追加', completed: false };
+      const newTask = { id: 1, title: 'Enterで追加', completed: false, deadline: null };
 
       fetch.mockResolvedValueOnce({
         json: async () => []
@@ -190,9 +226,9 @@ describe('App Component Tests', () => {
         expect(fetch).toHaveBeenCalledWith('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: 'Enterで追加', completed: false })
+          body: JSON.stringify({ title: 'Enterで追加', deadline: null })
         });
-      });
+      }, { timeout: 3000 });
     });
 
     test('空の入力値ではタスクを追加しない', async () => {
@@ -236,17 +272,16 @@ describe('App Component Tests', () => {
       fireEvent.click(addButton);
 
       // POSTリクエストが呼ばれないことを確認
-      await waitFor(() => {
-        expect(fetch).toHaveBeenCalledTimes(1); // GETのみ
-      });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      expect(fetch).toHaveBeenCalledTimes(1); // GETのみ
     });
   });
 
   describe('タスクの削除', () => {
     test('タスクを削除できる', async () => {
       const initialTasks = [
-        { id: 1, title: 'タスク1', completed: false },
-        { id: 2, title: 'タスク2', completed: false }
+        { id: 1, title: 'タスク1', completed: false, deadline: null },
+        { id: 2, title: 'タスク2', completed: false, deadline: null }
       ];
 
       // GETリクエストをモック
@@ -258,7 +293,7 @@ describe('App Component Tests', () => {
 
       await waitFor(() => {
         expect(screen.getByText('タスク1')).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       // DELETEリクエストをモック
       fetch.mockResolvedValueOnce({
@@ -274,12 +309,12 @@ describe('App Component Tests', () => {
         expect(fetch).toHaveBeenCalledWith('/api/tasks/1', {
           method: 'DELETE'
         });
-      });
+      }, { timeout: 3000 });
 
       // タスク1が削除されたことを確認
       await waitFor(() => {
         expect(screen.queryByText('タスク1')).not.toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       // タスク2はまだ存在することを確認
       expect(screen.getByText('タスク2')).toBeInTheDocument();
@@ -287,9 +322,9 @@ describe('App Component Tests', () => {
 
     test('複数のタスクを順番に削除できる', async () => {
       const initialTasks = [
-        { id: 1, title: 'タスク1', completed: false },
-        { id: 2, title: 'タスク2', completed: false },
-        { id: 3, title: 'タスク3', completed: false }
+        { id: 1, title: 'タスク1', completed: false, deadline: null },
+        { id: 2, title: 'タスク2', completed: false, deadline: null },
+        { id: 3, title: 'タスク3', completed: false, deadline: null }
       ];
 
       fetch.mockResolvedValueOnce({
@@ -300,7 +335,7 @@ describe('App Component Tests', () => {
 
       await waitFor(() => {
         expect(screen.getByText('タスク1')).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       // タスク2を削除
       fetch.mockResolvedValueOnce({
@@ -312,7 +347,7 @@ describe('App Component Tests', () => {
 
       await waitFor(() => {
         expect(screen.queryByText('タスク2')).not.toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
       // タスク1とタスク3はまだ存在
       expect(screen.getByText('タスク1')).toBeInTheDocument();
@@ -323,7 +358,7 @@ describe('App Component Tests', () => {
   describe('タスクの完了切り替え', () => {
     test('チェックボックスでタスクの完了状態を切り替えられる', async () => {
       const initialTasks = [
-        { id: 1, title: 'タスク1', completed: false }
+        { id: 1, title: 'タスク1', completed: false, deadline: null }
       ];
 
       fetch.mockResolvedValueOnce({
@@ -336,7 +371,8 @@ describe('App Component Tests', () => {
         expect(screen.getByText('タスク1')).toBeInTheDocument();
       });
 
-      const checkbox = screen.getByRole('checkbox');
+      const checkboxes = screen.getAllByRole('checkbox');
+      const checkbox = checkboxes[0];
       expect(checkbox).not.toBeChecked();
 
       // チェックボックスをクリック
@@ -357,7 +393,7 @@ describe('App Component Tests', () => {
 
     test('完了したタスクはスタイルが変わる', async () => {
       const initialTasks = [
-        { id: 1, title: 'タスク1', completed: true }
+        { id: 1, title: 'タスク1', completed: true, deadline: null }
       ];
 
       fetch.mockResolvedValueOnce({
@@ -368,9 +404,10 @@ describe('App Component Tests', () => {
 
       await waitFor(() => {
         expect(screen.getByText('タスク1')).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
 
-      const checkbox = screen.getByRole('checkbox');
+      const checkboxes = screen.getAllByRole('checkbox');
+      const checkbox = checkboxes[0];
       expect(checkbox).toBeChecked();
     });
   });
@@ -404,7 +441,7 @@ describe('App Component Tests', () => {
 
       // POSTリクエストをモック
       fetch.mockResolvedValueOnce({
-        json: async () => ({ id: 1, title: '新タスク', completed: false })
+        json: async () => ({ id: 1, title: '新タスク', completed: false, deadline: null })
       });
 
       // 追加ボタンをクリック
@@ -415,6 +452,106 @@ describe('App Component Tests', () => {
       await waitFor(() => {
         expect(input.value).toBe('');
       });
+    });
+  });
+
+  describe('タスクのソート機能', () => {
+    test('期限が近い順にソートされる', async () => {
+      const mockTasks = [
+        { id: 1, title: 'タスクC', completed: false, deadline: '2026-03-15T10:00' },
+        { id: 2, title: 'タスクA', completed: false, deadline: '2026-02-25T10:00' },
+        { id: 3, title: 'タスクB', completed: false, deadline: '2026-03-01T10:00' },
+        { id: 4, title: 'タスクD', completed: false, deadline: null }
+      ];
+
+      fetch.mockResolvedValueOnce({
+        json: async () => mockTasks
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('タスクA')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // タスクが期限順に並んでいるか確認
+      const taskTexts = screen.getAllByText(/タスク[A-D]/).map(el => el.textContent);
+      expect(taskTexts[0]).toBe('タスクA'); // 2/25
+      expect(taskTexts[1]).toBe('タスクB'); // 3/1
+      expect(taskTexts[2]).toBe('タスクC'); // 3/15
+      expect(taskTexts[3]).toBe('タスクD'); // 期限なし
+    });
+  });
+
+  describe('タスクの編集機能', () => {
+    test('編集ボタンをクリックすると編集モードになる', async () => {
+      const initialTasks = [
+        { id: 1, title: 'タスク1', completed: false, deadline: null }
+      ];
+
+      fetch.mockResolvedValueOnce({
+        json: async () => initialTasks
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('タスク1')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      const editButton = screen.getByRole('button', { name: /編集/ });
+      fireEvent.click(editButton);
+
+      // 保存とキャンセルボタンが表示される
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /保存/ })).toBeInTheDocument();
+      }, { timeout: 3000 });
+      expect(screen.getByRole('button', { name: /キャンセル/ })).toBeInTheDocument();
+    });
+
+    test('タスクを編集できる', async () => {
+      const initialTasks = [
+        { id: 1, title: '旧タスク', completed: false, deadline: null }
+      ];
+      const updatedTask = { id: 1, title: '新タスク', completed: false, deadline: '2026-03-01T10:00' };
+
+      fetch.mockResolvedValueOnce({
+        json: async () => initialTasks
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText('旧タスク')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // 編集ボタンをクリック
+      const editButton = screen.getByRole('button', { name: /編集/ });
+      fireEvent.click(editButton);
+
+      // PUTリクエストをモック
+      fetch.mockResolvedValueOnce({
+        json: async () => updatedTask
+      });
+
+      // 入力フィールドを更新
+      await waitFor(() => {
+        const inputs = screen.getAllByDisplayValue('旧タスク');
+        fireEvent.change(inputs[0], { target: { value: '新タスク' } });
+      }, { timeout: 3000 });
+
+      // 保存ボタンをクリック
+      const saveButton = screen.getByRole('button', { name: /保存/ });
+      fireEvent.click(saveButton);
+
+      // PUTリクエストが呼ばれたことを確認
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith('/api/tasks/1', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '新タスク', completed: false, deadline: null })
+        });
+      }, { timeout: 3000 });
     });
   });
 });

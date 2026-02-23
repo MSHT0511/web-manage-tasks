@@ -14,8 +14,8 @@ const fs = require('fs');
 
 // テスト用のモックデータ
 const mockTasks = [
-  { id: 1, title: 'テストタスク1', completed: false },
-  { id: 2, title: 'テストタスク2', completed: true }
+  { id: 1, title: 'テストタスク1', completed: false, deadline: null },
+  { id: 2, title: 'テストタスク2', completed: true, deadline: '2026-02-25T15:00' }
 ];
 
 // appをインポート（モック設定後）
@@ -72,9 +72,48 @@ describe('Server API Tests', () => {
       expect(response.body).toEqual({
         id: 3,
         title: newTaskTitle,
-        completed: false
+        completed: false,
+        deadline: null
       });
       expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    test('期限付きタスクを正常に追加できる', async () => {
+      const newTask = {
+        title: '期限付きタスク',
+        deadline: '2026-03-01T10:00'
+      };
+      const response = await request(app)
+        .post('/api/tasks')
+        .send(newTask);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        id: 3,
+        title: newTask.title,
+        completed: false,
+        deadline: newTask.deadline
+      });
+      expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    test('期限が空文字列の場合はnullに変換される', async () => {
+      const response = await request(app)
+        .post('/api/tasks')
+        .send({ title: 'タスク', deadline: '   ' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.deadline).toBe(null);
+    });
+
+    test('無効な期限形式の場合は400エラーを返す', async () => {
+      const response = await request(app)
+        .post('/api/tasks')
+        .send({ title: 'タスク', deadline: 'invalid-date' });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: '無効な期限形式' });
+      expect(fs.writeFile).not.toHaveBeenCalled();
     });
 
     test('タイトルが空の場合は400エラーを返す', async () => {
@@ -130,6 +169,96 @@ describe('Server API Tests', () => {
       const response = await request(app)
         .post('/api/tasks')
         .send({ title: '新タスク' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: '保存エラー' });
+    });
+  });
+
+  describe('PUT /api/tasks/:id', () => {
+    test('タスクを正常に更新できる', async () => {
+      const updatedTask = {
+        title: '更新されたタスク',
+        completed: true,
+        deadline: '2026-03-15T14:00'
+      };
+      const response = await request(app)
+        .put('/api/tasks/1')
+        .send(updatedTask);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        id: 1,
+        ...updatedTask
+      });
+      expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    test('期限をnullに更新できる', async () => {
+      const updatedTask = {
+        title: '期限なしタスク',
+        completed: false,
+        deadline: null
+      };
+      const response = await request(app)
+        .put('/api/tasks/2')
+        .send(updatedTask);
+
+      expect(response.status).toBe(200);
+      expect(response.body.deadline).toBe(null);
+    });
+
+    test('存在しないIDの場合は404エラーを返す', async () => {
+      const response = await request(app)
+        .put('/api/tasks/999')
+        .send({ title: 'タスク', completed: false });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'タスクが見つかりません' });
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    test('タイトルが空の場合は400エラーを返す', async () => {
+      const response = await request(app)
+        .put('/api/tasks/1')
+        .send({ title: '', completed: false });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'タイトル必須' });
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    test('無効な期限形式の場合は400エラーを返す', async () => {
+      const response = await request(app)
+        .put('/api/tasks/1')
+        .send({ title: 'タスク', deadline: 'not-a-date' });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: '無効な期限形式' });
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    test('ファイル読み込みエラー時に500を返す', async () => {
+      fs.readFile.mockImplementation((path, encoding, callback) => {
+        callback(new Error('Read error'));
+      });
+
+      const response = await request(app)
+        .put('/api/tasks/1')
+        .send({ title: 'タスク' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: '読み込みエラー' });
+    });
+
+    test('ファイル書き込みエラー時に500を返す', async () => {
+      fs.writeFile.mockImplementation((path, data, callback) => {
+        callback(new Error('Write error'));
+      });
+
+      const response = await request(app)
+        .put('/api/tasks/1')
+        .send({ title: 'タスク' });
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: '保存エラー' });
