@@ -1,0 +1,38 @@
+# 依存関係（Dockerfile内で個別にインストール）
+node_modules
+client/node_modules
+server/node_modules
+
+# ビルド成果物
+client/dist
+coverage
+*.log
+
+# Git関連
+.git
+.gitignore
+
+# ドキュメント（README.mdは除外しない）
+*.md
+!README.md
+
+# エディタ設定
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+
+# テスト関連
+client/__tests__
+server/__tests__
+__mocks__
+
+# Docker関連
+Dockerfile
+docker-compose.yml
+.dockerignore
